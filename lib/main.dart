@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'app.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  // Preserve the native splash screen until we're ready to show the app.
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: binding);
 
   // Lock orientation to portrait on mobile devices.
   // Desktop/tablet will still support all orientations via responsive layout.
@@ -23,4 +26,7 @@ void main() async {
   );
 
   runApp(const TetrisApp());
+
+  // Dismiss the native splash once the first frame is rendered.
+  FlutterNativeSplash.remove();
 }

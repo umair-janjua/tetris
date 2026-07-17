@@ -53,6 +53,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -68,6 +70,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/audio/
+    - assets/icon/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -94,3 +97,60 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# ── App Icon Configuration ────────────────────────────────────────────────────
+flutter_launcher_icons:
+  # Source image (1024×1024 PNG)
+  image_path: "assets/icon/app_icon.png"
+
+  # Android – adaptive icon (API 26+) with neon pieces on dark bg
+  android: true
+  adaptive_icon_background: "#0F172A"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+
+  # iOS
+  ios: true
+  remove_alpha_ios: true          # App Store requires no alpha channel
+
+  # Web
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#0F172A"
+    theme_color: "#38BDF8"
+
+  # macOS
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+  # Windows
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 48
+
+# ── Native Splash Configuration ───────────────────────────────────────────────
+flutter_native_splash:
+  # Background matches the app's dark navy theme
+  color: "#0F172A"
+
+  # Centered logo (glowing T-piece + TETRIS wordmark)
+  image: assets/icon/splash_logo.png
+
+  # Immersive full-screen splash
+  fullscreen: true
+
+  # Android
+  android: true
+  android_12:
+    color: "#0F172A"
+    image: assets/icon/splash_logo.png
+    icon_background_color: "#0F172A"
+
+  # iOS
+  ios: true
+
+  # Web (not a web project)
+  web: false
