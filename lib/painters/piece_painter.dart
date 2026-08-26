@@ -48,32 +48,67 @@ class PiecePainter extends CustomPainter {
     Canvas canvas, int row, int col, double cs,
     double ox, double oy, Color color,
   ) {
-    final x    = ox + col * cs;
-    final y    = oy + row * cs;
-    const pad  = 1.5;
+    final x = ox + col * cs;
+    final y = oy + row * cs;
+    const pad = 1.2;
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x + pad, y + pad, cs - pad * 2, cs - pad * 2),
-      Radius.circular(cs * 0.15),
+      Radius.circular(cs * 0.16),
     );
 
-    // Glow
+    // Neon glow
     canvas.drawRRect(
-      rect.inflate(cs * 0.14),
+      rect.inflate(cs * 0.18),
       Paint()
-        ..color = color.withOpacity(0.18)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.45),
+        ..color = color.withValues(alpha: 0.26)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.50),
     );
 
-    // Fill
-    canvas.drawRRect(rect, Paint()..color = color);
+    // 1. Crystal Gradient Base Fill
+    final cellRect = rect.outerRect;
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color.lerp(color, Colors.white, 0.32)!,
+        color,
+        Color.lerp(color, Colors.black, 0.38)!,
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    );
+    canvas.drawRRect(rect, Paint()..shader = gradient.createShader(cellRect));
 
-    // Shine
+    // 2. High-Tech Inner Glow Rim
+    final innerBorder = Paint()
+      ..color = Color.lerp(color, Colors.white, 0.45)!.withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + pad, y + pad, (cs - pad * 2) * 0.60, (cs - pad * 2) * 0.34),
-        Radius.circular(cs * 0.1),
+        Rect.fromLTWH(x + pad + 0.6, y + pad + 0.6, cs - (pad + 0.6) * 2, cs - (pad + 0.6) * 2),
+        Radius.circular(cs * 0.12),
       ),
-      Paint()..color = Colors.white.withOpacity(0.30),
+      innerBorder,
+    );
+
+    // 3. Specular Glare (Top Glass Highlight)
+    final shineW = (cs - pad * 2) * 0.68;
+    final shineH = (cs - pad * 2) * 0.32;
+    final shineRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x + pad + 1.5, y + pad + 1.2, shineW, shineH),
+      Radius.circular(cs * 0.08),
+    );
+    canvas.drawRRect(
+      shineRRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: 0.55),
+            Colors.white.withValues(alpha: 0.05),
+          ],
+        ).createShader(shineRRect.outerRect),
     );
   }
 

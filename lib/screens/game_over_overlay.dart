@@ -36,7 +36,8 @@ class _GameOverOverlayState extends State<GameOverOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<GameProvider>();
+    final p  = context.watch<GameProvider>();
+    final tc = ThemeColors.of(context);
 
     return Positioned.fill(
       child: FadeTransition(
@@ -50,7 +51,7 @@ class _GameOverOverlayState extends State<GameOverOverlay>
               width: 300,
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: tc.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                     color: AppColors.error.withOpacity(0.45), width: 1.5),
@@ -84,24 +85,25 @@ class _GameOverOverlayState extends State<GameOverOverlay>
                   Text(
                     'Level ${p.level} reached',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textMuted,
+                          color: tc.textMuted,
                         ),
                   ),
 
                   const SizedBox(height: 24),
-                  const Divider(color: AppColors.border),
+                  Divider(color: tc.border),
                   const SizedBox(height: 16),
 
                   // ── Stats ───────────────────────────────────────────────
-                  _Stat(label: 'SCORE',  value: '${p.score}'),
+                  _Stat(label: 'SCORE',  value: '${p.score}',  tc: tc),
                   const SizedBox(height: 10),
                   _Stat(
                     label: 'BEST',
                     value: '${p.highScore}',
                     isGold: true,
+                    tc: tc,
                   ),
                   const SizedBox(height: 10),
-                  _Stat(label: 'LINES',  value: '${p.linesCleared}'),
+                  _Stat(label: 'LINES',  value: '${p.linesCleared}', tc: tc),
 
                   const SizedBox(height: 28),
 
@@ -136,18 +138,19 @@ class _Stat extends StatelessWidget {
   final String label;
   final String value;
   final bool isGold;
-  const _Stat({required this.label, required this.value, this.isGold = false});
+  final ThemeColors tc;
+  const _Stat({required this.label, required this.value, required this.tc, this.isGold = false});
 
   @override
   Widget build(BuildContext context) {
-    final color = isGold ? AppColors.warning : AppColors.textPrimary;
+    final color = isGold ? AppColors.warning : tc.textPrimary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isGold ? AppColors.warning : AppColors.textSecondary,
+                color: isGold ? AppColors.warning : tc.textSecondary,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5,
               ),

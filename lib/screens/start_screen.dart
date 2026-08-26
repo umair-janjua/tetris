@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/settings_panel.dart';
 import 'game_screen.dart';
 
 /// Home / start screen shown before the game begins.
 ///
 /// Features a pulsing neon title, high-score display, controls legend,
-/// and an animated slide-in entrance.
+/// a settings button, and an animated slide-in entrance.
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
 
@@ -58,19 +60,26 @@ class _StartScreenState extends State<StartScreen>
   void _startGame() {
     context.read<GameProvider>().startGame();
     Navigator.of(context).push(PageRouteBuilder(
-      pageBuilder:      (_, __, ___) => const GameScreen(),
-      transitionsBuilder: (_, anim, __, child) =>
+      pageBuilder: (_, _, _) => const GameScreen(),
+      transitionsBuilder: (_, anim, _, child) =>
           FadeTransition(opacity: anim, child: child),
       transitionDuration: const Duration(milliseconds: 350),
     ));
   }
 
+  void _openSettings() {
+    showSettingsSheet(context);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
     final highScore = context.select<GameProvider, int>((p) => p.highScore);
+    final gameMode = context.select<SettingsProvider, GameMode>(
+        (s) => s.gameMode);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: tc.background,
       body: Stack(
         children: [
           // Radial glow background decoration
@@ -81,10 +90,21 @@ class _StartScreenState extends State<StartScreen>
                   center: const Alignment(0, -0.25),
                   radius: 1.1,
                   colors: [
-                    AppColors.accent.withOpacity(0.07),
+                    tc.accent.withValues(alpha: 0.10),
                     Colors.transparent,
                   ],
                 ),
+              ),
+            ),
+          ),
+
+          // ── Settings button (top-right corner) ─────────────────────────
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: _SettingsIconButton(onTap: _openSettings, tc: tc),
               ),
             ),
           ),
@@ -102,31 +122,39 @@ class _StartScreenState extends State<StartScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // ── Title ──────────────────────────────────────────
+                        const SizedBox(height: 40),
+
+                        // ── Title ───────────────────────────────────────
                         AnimatedBuilder(
                           animation: _glowAnim,
-                          builder: (_, __) => _buildTitle(context),
+                          builder: (_, _) => _buildTitle(context),
                         ),
 
                         const SizedBox(height: 8),
                         Text(
-                          'THE CLASSIC GAME · REBORN',
+                          '12-COLUMN CYBER EDITION',
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.textMuted,
+                                color: tc.textMuted,
                                 letterSpacing: 3,
+                                fontWeight: FontWeight.w800,
                               ),
                           textAlign: TextAlign.center,
                         ),
 
-                        const SizedBox(height: 44),
+                        const SizedBox(height: 14),
 
-                        // ── High score chip ────────────────────────────────
+                        // ── Mode badge ──────────────────────────────────
+                        _ModeBadge(mode: gameMode, tc: tc),
+
+                        const SizedBox(height: 28),
+
+                        // ── High score chip ─────────────────────────────
                         if (highScore > 0) ...[
-                          _HighScoreBadge(score: highScore),
-                          const SizedBox(height: 28),
+                          _HighScoreBadge(score: highScore, tc: tc),
+                          const SizedBox(height: 24),
                         ],
 
-                        // ── Play button ────────────────────────────────────
+                        // ── Play button ─────────────────────────────────
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -135,10 +163,26 @@ class _StartScreenState extends State<StartScreen>
                           ),
                         ),
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 14),
 
-                        // ── Controls legend ────────────────────────────────
-                        _ControlsLegend(),
+                        // ── Settings button ─────────────────────────────
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _openSettings,
+                            icon: Icon(Icons.settings_rounded,
+                                size: 18, color: tc.textPrimary),
+                            label: Text(
+                              'SETTINGS',
+                              style: TextStyle(color: tc.textPrimary),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 36),
+
+                        // ── Controls legend ─────────────────────────────
+                        _ControlsLegend(tc: tc),
                       ],
                     ),
                   ),
@@ -154,16 +198,18 @@ class _StartScreenState extends State<StartScreen>
   Widget _buildTitle(BuildContext context) {
     return ShaderMask(
       shaderCallback: (bounds) => const LinearGradient(
-        colors: [Color(0xFF38BDF8), Color(0xFF22C55E), Color(0xFF38BDF8)],
+        colors: [Color(0xFF00E5FF), Color(0xFF22C55E), Color(0xFF00E5FF)],
       ).createShader(bounds),
       child: Text(
-        'TETRIS',
+        'CUBICLES',
         style: Theme.of(context).textTheme.displayLarge?.copyWith(
-              color: Colors.white, // Required for ShaderMask
+              fontSize: 42,
+              letterSpacing: 4,
+              color: Colors.white,
               shadows: [
                 Shadow(
                   color: AppColors.accent
-                      .withOpacity(_glowAnim.value * 0.75),
+                      .withValues(alpha: _glowAnim.value * 0.75),
                   blurRadius: 28 * _glowAnim.value,
                 ),
               ],
@@ -175,19 +221,98 @@ class _StartScreenState extends State<StartScreen>
 
 // ── Supporting widgets ─────────────────────────────────────────────────────────
 
+class _SettingsIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final ThemeColors tc;
+  const _SettingsIconButton({required this.onTap, required this.tc});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: tc.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: tc.border, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: tc.accent.withValues(alpha: 0.10),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        child: Icon(Icons.settings_rounded, color: tc.textSecondary, size: 22),
+      ),
+    );
+  }
+}
+
+class _ModeBadge extends StatelessWidget {
+  final GameMode mode;
+  final ThemeColors tc;
+  const _ModeBadge({required this.mode, required this.tc});
+
+  Color get _color {
+    switch (mode) {
+      case GameMode.classic:  return tc.accent;
+      case GameMode.speed:    return AppColors.error;
+      case GameMode.marathon: return AppColors.success;
+    }
+  }
+
+  IconData get _icon {
+    switch (mode) {
+      case GameMode.classic:  return Icons.grid_on_rounded;
+      case GameMode.speed:    return Icons.bolt_rounded;
+      case GameMode.marathon: return Icons.timer_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: _color.withValues(alpha: 0.40), width: 1.2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_icon, color: _color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            '${mode.label.toUpperCase()} MODE',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: _color,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HighScoreBadge extends StatelessWidget {
   final int score;
-  const _HighScoreBadge({required this.score});
+  final ThemeColors tc;
+  const _HighScoreBadge({required this.score, required this.tc});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.warning.withOpacity(0.1),
+        color: AppColors.warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
-            color: AppColors.warning.withOpacity(0.45), width: 1.2),
+            color: AppColors.warning.withValues(alpha: 0.45), width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -210,6 +335,9 @@ class _HighScoreBadge extends StatelessWidget {
 }
 
 class _ControlsLegend extends StatelessWidget {
+  final ThemeColors tc;
+  const _ControlsLegend({required this.tc});
+
   final _items = const [
     ('TAP', 'Rotate piece'),
     ('SWIPE ← →', 'Move left / right'),
@@ -223,16 +351,16 @@ class _ControlsLegend extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: tc.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 1),
+        border: Border.all(color: tc.border, width: 1),
       ),
       child: Column(
         children: [
           Text(
             'HOW TO PLAY',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.textMuted,
+                  color: tc.textMuted,
                   letterSpacing: 2,
                   fontWeight: FontWeight.w700,
                 ),
@@ -246,15 +374,15 @@ class _ControlsLegend extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.12),
+                        color: tc.accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                            color: AppColors.accent.withOpacity(0.3)),
+                            color: tc.accent.withValues(alpha: 0.35)),
                       ),
                       child: Text(
                         item.$1,
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.accent,
+                              color: tc.accent,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
@@ -263,7 +391,9 @@ class _ControlsLegend extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.$2,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: tc.textSecondary,
+                            ),
                       ),
                     ),
                   ],

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../engine/game_engine.dart';
 import '../models/tetromino.dart';
 import '../services/audio_service.dart';
+import 'settings_provider.dart';
 
 /// Sits between [GameEngine] and the UI.
 ///
@@ -12,9 +14,12 @@ import '../services/audio_service.dart';
 /// - Persists / loads the high score via [SharedPreferences].
 /// - Exposes game state to the widget tree and calls [notifyListeners].
 /// - Fires audio events via [AudioService] at every meaningful game moment.
+/// - Fires haptic feedback on level-up when enabled in [SettingsProvider].
+/// - Applies the selected [GameMode] from [SettingsProvider] on game start.
 class GameProvider extends ChangeNotifier {
   final GameEngine   _engine = GameEngine();
   final AudioService _audio;
+  final SettingsProvider _settings;
 
   Timer? _timer;
 
@@ -30,7 +35,8 @@ class GameProvider extends ChangeNotifier {
   /// Guard against notifying after dispose.
   bool _disposed = false;
 
-  GameProvider({required AudioService audio}) : _audio = audio {
+  GameProvider({required AudioService audio, required SettingsProvider settings})
+      : _audio = audio, _settings = settings {
     _loadHighScore();
   }
 
@@ -46,6 +52,7 @@ class GameProvider extends ChangeNotifier {
   int             get linesCleared  => _engine.linesCleared;
   int             get highScore     => _engine.highScore;
   GameStatus      get status        => _engine.status;
+  GameMode        get gameMode      => _engine.gameMode;
 
   /// Rows that were just cleared; non-empty briefly after each line clear
   /// to drive the particle animation.
@@ -55,19 +62,21 @@ class GameProvider extends ChangeNotifier {
 
   Future<void> _loadHighScore() async {
     final prefs  = await SharedPreferences.getInstance();
-    final saved  = prefs.getInt('tetris_high_score') ?? 0;
+    final saved  = prefs.getInt('cubicles_high_score') ?? prefs.getInt('tetris_high_score') ?? 0;
     _engine.initialize(savedHighScore: saved);
     _safeNotify();
   }
 
   Future<void> _saveHighScore() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('tetris_high_score', _engine.highScore);
+    await prefs.setInt('cubicles_high_score', _engine.highScore);
   }
 
   // ── Game Lifecycle ─────────────────────────────────────────────────────────
 
   void startGame() {
+    // Apply current game mode from settings before starting.
+    _engine.gameMode = _settings.gameMode;
     _engine.startGame();
     _clearedRows     = [];
     _lastFallSpeedMs = _engine.fallSpeedMs;
@@ -153,15 +162,6 @@ class GameProvider extends ChangeNotifier {
 
   void _onTick(Timer _) {
     final cleared = _engine.tick();
-
-    // Lock sound when a piece settles naturally (tick returned cleared list
-    // which means a piece just locked — even if no lines were cleared).
-    // We detect this by checking if tick triggered a lock (cleared list is
-    // returned only after _lockPiece, so any tick returning a list means lock).
-    // Actually tick returns [] on regular drop and [] or [rows] on lock.
-    // We play lock only when we know a lock just happened:
-    // cleared != null signifies lock occurred.
-    // Use a flag approach via engine's currentPiece changing.
     _handleCleared(cleared);
     _checkGameOver();
 
@@ -191,6 +191,11 @@ class GameProvider extends ChangeNotifier {
         Future.delayed(const Duration(milliseconds: 300), () {
           _audio.play(SoundEvent.levelUp);
         });
+
+        // Haptic feedback on level-up (mobile only, no-op on desktop).
+        if (_settings.vibrateOnLevelUp) {
+          HapticFeedback.mediumImpact();
+        }
       }
     }
 

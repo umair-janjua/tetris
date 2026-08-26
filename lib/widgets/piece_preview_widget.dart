@@ -26,6 +26,7 @@ class PiecePreviewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
       child: AnimatedOpacity(
@@ -38,7 +39,7 @@ class PiecePreviewWidget extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.textMuted,
+                    color: tc.textMuted,
                     letterSpacing: 2,
                     fontWeight: FontWeight.w700,
                   ),
@@ -51,14 +52,14 @@ class PiecePreviewWidget extends StatelessWidget {
               width: size,
               height: size,
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: tc.surface,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isDisabled
-                      ? AppColors.border.withOpacity(0.3)
+                      ? tc.border.withOpacity(0.3)
                       : (onTap != null
-                          ? AppColors.accent.withOpacity(0.4)
-                          : AppColors.border),
+                          ? tc.accent.withOpacity(0.4)
+                          : tc.border),
                   width: 1.2,
                 ),
               ),

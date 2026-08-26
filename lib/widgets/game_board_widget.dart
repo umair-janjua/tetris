@@ -43,46 +43,68 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
         final boardW = cellSize * GameEngine.boardCols;
         final boardH = cellSize * GameEngine.boardRows;
 
-        return Center(
-          child: SizedBox(
-            width: boardW,
-            height: boardH,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _onTap,
-              onLongPress: _onLongPress,
-              onPanCancel: _onPanCancel,
-              onPanStart:  _onPanStart,
-              onPanUpdate: (d) => _onPanUpdate(d, cellSize),
-              onPanEnd:    _onPanEnd,
-              child: Consumer<GameProvider>(
-                builder: (_, provider, __) => Stack(
-                  children: [
-                    // ── Game board ────────────────────────────────────────
-                    RepaintBoundary(
-                      child: CustomPaint(
-                        size: Size(boardW, boardH),
-                        painter: BoardPainter(
-                          board:        provider.board,
-                          currentPiece: provider.currentPiece,
-                          ghostPiece:   provider.ghostPiece,
-                        ),
-                      ),
-                    ),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
-                    // ── Particle explosion on line clear ──────────────────
-                    if (provider.clearedRows.isNotEmpty)
-                      ParticleOverlay(
-                        // New key forces re-creation on every distinct clear.
-                        key: ValueKey(
-                          '${provider.clearedRows.join(',')}'
-                          '_${DateTime.now().millisecondsSinceEpoch}',
+        return Center(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? const Color(0xFF0EA5E9).withValues(alpha: 0.16)
+                      : const Color(0xFF0284C7).withValues(alpha: 0.12),
+                  blurRadius: 28,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              width: boardW,
+              height: boardH,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _onTap,
+                onLongPress: _onLongPress,
+                onPanCancel: _onPanCancel,
+                onPanStart:  _onPanStart,
+                onPanUpdate: (d) => _onPanUpdate(d, cellSize),
+                onPanEnd:    _onPanEnd,
+                child: Consumer<GameProvider>(
+                  builder: (_, provider, _) => Stack(
+                    children: [
+                      // ── Game board ────────────────────────────────────────
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          size: Size(boardW, boardH),
+                          painter: BoardPainter(
+                            board:        provider.board,
+                            currentPiece: provider.currentPiece,
+                            ghostPiece:   provider.ghostPiece,
+                            isDark:       isDark,
+                          ),
                         ),
-                        clearedRows: List<int>.from(provider.clearedRows),
-                        cellSize:   cellSize,
-                        boardWidth: boardW,
                       ),
-                  ],
+
+                      // ── Particle explosion on line clear ──────────────────
+                      if (provider.clearedRows.isNotEmpty)
+                        ParticleOverlay(
+                          // New key forces re-creation on every distinct clear.
+                          key: ValueKey(
+                            '${provider.clearedRows.join(',')}'
+                            '_${DateTime.now().millisecondsSinceEpoch}',
+                          ),
+                          clearedRows: List<int>.from(provider.clearedRows),
+                          cellSize:   cellSize,
+                          boardWidth: boardW,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

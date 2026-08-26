@@ -1,30 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/start_screen.dart';
 import 'services/audio_service.dart';
 import 'theme/app_theme.dart';
 
 /// Root application widget.
 ///
-/// Sets up the Provider tree with [AudioService] and [GameProvider] so both
-/// are accessible anywhere in the widget tree and survive route transitions.
-class TetrisApp extends StatelessWidget {
-  const TetrisApp({super.key});
+/// Sets up the Provider tree:
+///   [SettingsProvider] → [AudioService] → [GameProvider]
+///
+/// [SettingsProvider] must be outermost so [AudioService] and [GameProvider]
+/// can read settings at construction time.
+class CubiclesApp extends StatelessWidget {
+  const CubiclesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // AudioService must be created first so GameProvider can reference it.
     return ChangeNotifierProvider(
-      create: (_) => AudioService(),
+      create: (_) => SettingsProvider(),
       child: Builder(
-        builder: (ctx) => ChangeNotifierProvider(
-          create: (_) => GameProvider(audio: ctx.read<AudioService>()),
-          child: MaterialApp(
-            title: 'Tetris',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.darkTheme,
-            home: const StartScreen(),
+        builder: (settingsCtx) => ChangeNotifierProvider(
+          create: (_) => AudioService(
+            settings: settingsCtx.read<SettingsProvider>(),
+          ),
+          child: Builder(
+            builder: (audioCtx) => ChangeNotifierProvider(
+              create: (_) => GameProvider(
+                audio: audioCtx.read<AudioService>(),
+                settings: audioCtx.read<SettingsProvider>(),
+              ),
+              child: Consumer<SettingsProvider>(
+                builder: (_, settings, __) => MaterialApp(
+                  title: 'Cubicles',
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.lightTheme,
+                  darkTheme: AppTheme.darkTheme,
+                  themeMode: settings.themeMode,
+                  home: const StartScreen(),
+                ),
+              ),
+            ),
           ),
         ),
       ),

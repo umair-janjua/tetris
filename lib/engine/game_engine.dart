@@ -1,11 +1,12 @@
 import 'dart:math';
 import '../models/tetromino.dart';
+import '../providers/settings_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GAME STATUS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// All possible states the Tetris game can be in.
+/// All possible states the Cubicles game can be in.
 enum GameStatus {
   idle,     // Not yet started; showing start screen
   playing,  // Active gameplay
@@ -81,21 +82,21 @@ class _Bag7 {
 // GAME ENGINE  (pure Dart – no Flutter dependencies)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Core Tetris game logic.
+/// Core Cubicles game logic.
 ///
 /// Manages board state, piece movement/rotation, line clearing,
 /// scoring, level progression, and the hold/next-piece system.
 class GameEngine {
   // ── Board Dimensions ───────────────────────────────────────────────────────
   static const int boardRows = 20;
-  static const int boardCols = 10;
+  static const int boardCols = 12;
 
-  /// Horizontal spawn position: centers the 4-wide bounding box.
-  static const int _spawnCol = 3;
+  /// Horizontal spawn position: centers the 4-wide bounding box in a 12-col board.
+  static const int _spawnCol = 4;
 
   // ── Board State ────────────────────────────────────────────────────────────
 
-  /// 20×10 grid. 0 = empty, 1–7 = locked tetromino color index.
+  /// 20×12 grid. 0 = empty, 1–7 = locked tetromino color index.
   late List<List<int>> board;
 
   ActivePiece? currentPiece;
@@ -112,6 +113,9 @@ class GameEngine {
   int highScore    = 0;
 
   GameStatus status = GameStatus.idle;
+
+  /// The active game mode — affects fall speed and level-up threshold.
+  GameMode gameMode = GameMode.classic;
 
   final _Bag7 _bag = _Bag7();
 
@@ -312,7 +316,10 @@ class GameEngine {
     score += (lineCount <= 4 ? basePoints[lineCount] : 800) * level;
 
     linesCleared += lineCount;
-    level = (linesCleared ~/ 10) + 1; // Level up every 10 lines
+
+    // Marathon mode levels up every 25 lines; all other modes every 10.
+    final linesPerLevel = gameMode == GameMode.marathon ? 25 : 10;
+    level = (linesCleared ~/ linesPerLevel) + 1;
 
     if (score > highScore) highScore = score;
   }
@@ -361,8 +368,15 @@ class GameEngine {
 
   /// Fall interval in milliseconds. Decreases with level, min 100 ms (level 9+).
   ///
-  /// Level 1 → 900 ms, Level 2 → 800 ms, …, Level 9+ → 100 ms.
-  int get fallSpeedMs => max(100, 900 - (level - 1) * 100);
+  /// Classic/Marathon: Level 1 → 900 ms, Level 2 → 800 ms, …, Level 9+ → 100 ms.
+  /// Speed: 35% faster at each level (multiply classic speed by 0.65).
+  int get fallSpeedMs {
+    final base = max(100, 900 - (level - 1) * 100);
+    if (gameMode == GameMode.speed) {
+      return max(60, (base * 0.65).round());
+    }
+    return base;
+  }
 
   // ── Pause / Resume ─────────────────────────────────────────────────────────
 

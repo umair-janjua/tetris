@@ -39,16 +39,17 @@ class _Item extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = highlight ? AppColors.warning : AppColors.accent;
+    final tc = ThemeColors.of(context);
+    final accent = highlight ? AppColors.warning : tc.accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: tc.surface,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
           color: highlight
               ? AppColors.warning.withOpacity(0.35)
-              : AppColors.border,
+              : tc.border,
           width: 1,
         ),
       ),
@@ -82,7 +83,7 @@ class _Item extends StatelessWidget {
               value.toString(),
               key: ValueKey(value),
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: highlight ? AppColors.warning : AppColors.textPrimary,
+                    color: highlight ? AppColors.warning : tc.textPrimary,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
                   ),
