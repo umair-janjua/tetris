@@ -1,4 +1,4 @@
-package com.umair.tetris.tetris
+package com.omen.cubicles
 
 import io.flutter.embedding.android.FlutterActivity
 

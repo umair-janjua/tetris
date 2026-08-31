@@ -1,0 +1,7 @@
+# Example key.properties for Google Play Store release signing
+# Copy this file to android/key.properties and fill in your keystore values:
+#
+# storePassword=your_store_password
+# keyPassword=your_key_password
+# keyAlias=your_key_alias
+# storeFile=app/my-release-key.jks
