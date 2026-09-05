@@ -342,7 +342,8 @@ class _ControlsLegend extends StatelessWidget {
     ('TAP', 'Rotate piece'),
     ('SWIPE ← →', 'Move left / right'),
     ('SWIPE ↓', 'Soft drop'),
-    ('HOLD', 'Hard drop'),
+    ('FLICK ↓', 'Hard drop'),
+    ('LONG PRESS', 'Hard drop'),
     ('HOLD PANEL', 'Stash piece'),
   ];
 

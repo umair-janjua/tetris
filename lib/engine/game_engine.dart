@@ -11,7 +11,7 @@ enum GameStatus {
   idle,     // Not yet started; showing start screen
   playing,  // Active gameplay
   paused,   // Player paused the game
-  gameOver, // Piece blocked at spawn; game ended
+  gameOver, // Piece blocked at spawn or locked out; game ended
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -86,18 +86,23 @@ class _Bag7 {
 ///
 /// Manages board state, piece movement/rotation, line clearing,
 /// scoring, level progression, and the hold/next-piece system.
+///
+/// The engine is deliberately timer-free: gravity is *driven* by
+/// [GameProvider], which calls [tick]. That keeps every rule in here
+/// synchronously testable.
 class GameEngine {
   // ── Board Dimensions ───────────────────────────────────────────────────────
   static const int boardRows = 20;
   static const int boardCols = 12;
 
-  /// Horizontal spawn position: centers the 4-wide bounding box in a 12-col board.
-  static const int _spawnCol = 4;
-
   // ── Board State ────────────────────────────────────────────────────────────
 
   /// 20×12 grid. 0 = empty, 1–7 = locked tetromino color index.
   late List<List<int>> board;
+
+  /// Bumped on every board mutation. The board list is mutated in place, so
+  /// painters cannot detect changes by identity — they compare this instead.
+  int boardVersion = 0;
 
   ActivePiece? currentPiece;
   TetrominoType? nextPieceType;
@@ -128,6 +133,7 @@ class GameEngine {
 
   void _resetState() {
     board = List.generate(boardRows, (_) => List.filled(boardCols, 0));
+    boardVersion++;
     currentPiece  = null;
     nextPieceType = null;
     holdPieceType = null;
@@ -149,6 +155,19 @@ class GameEngine {
 
   // ── Piece Spawning ─────────────────────────────────────────────────────────
 
+  /// Column of the bounding-box origin that horizontally centres [type].
+  ///
+  /// Derived from the piece's own rotation-0 extents rather than hardcoded, so
+  /// pieces stay centred if [boardCols] ever changes. Ties are resolved to the
+  /// left, matching the standard guideline.
+  static int _spawnColFor(TetrominoType type) {
+    final shape = TetrominoData.shapes[type]![0];
+    final minC  = shape.map((c) => c[1]).reduce(min);
+    final maxC  = shape.map((c) => c[1]).reduce(max);
+    final width = maxC - minC + 1;
+    return ((boardCols - width) ~/ 2) - minC;
+  }
+
   void _spawnPiece() {
     final type = nextPieceType ?? _bag.next();
     nextPieceType = _bag.next();
@@ -157,11 +176,14 @@ class GameEngine {
     // Compute spawn row so the topmost visible cells appear at board row 0.
     final shape  = TetrominoData.shapes[type]![0];
     final minRow = shape.map((c) => c[0]).reduce(min);
-    final spawnRow = -minRow; // For I: -1; for all others: 0
 
-    currentPiece = ActivePiece(type: type, row: spawnRow, col: _spawnCol);
+    currentPiece = ActivePiece(
+      type: type,
+      row: -minRow, // For I: -1; for all others: 0
+      col: _spawnColFor(type),
+    );
 
-    // Game over when the spawn position is already blocked.
+    // Game over when the spawn position is already blocked (block out).
     if (!_isValid(currentPiece!)) {
       status = GameStatus.gameOver;
       currentPiece = null;
@@ -189,7 +211,7 @@ class GameEngine {
     final moved = currentPiece!.copyWith(row: currentPiece!.row + 1);
     if (_isValid(moved)) {
       currentPiece = moved;
-      score += 1;
+      _addScore(1);
       return true;
     }
     return false;
@@ -202,47 +224,63 @@ class GameEngine {
     if (!_canAct) return [];
     final gr       = _computeGhostRow();
     final distance = gr - currentPiece!.row;
-    score += distance * 2;
+    _addScore(distance * 2);
     currentPiece = currentPiece!.copyWith(row: gr);
-    return _lockPiece();
+    return lockPiece();
   }
 
   // ── Rotation ───────────────────────────────────────────────────────────────
 
-  /// Rotate the current piece 90° clockwise with simplified wall-kick fallback.
-  void rotateCW() {
-    if (!_canAct) return;
-    final newRot = (currentPiece!.rotation + 1) % 4;
-    final rotated = currentPiece!.copyWith(rotation: newRot);
+  /// Rotate the current piece using Super Rotation System wall kicks.
+  ///
+  /// Tries each SRS kick offset for the transition in order and applies the
+  /// first that fits. Returns true when the piece actually rotated.
+  bool rotate(RotationDir dir) {
+    if (!_canAct) return false;
 
-    // Plain rotation
-    if (_isValid(rotated)) { currentPiece = rotated; return; }
+    final piece = currentPiece!;
+    final from  = piece.rotation;
+    final to    = dir == RotationDir.cw
+        ? (from + 1) % 4
+        : (from + 3) % 4;
 
-    // Horizontal wall kicks (±1, ±2 columns)
-    for (final dx in [-1, 1, -2, 2]) {
-      final kicked = rotated.copyWith(col: rotated.col + dx);
-      if (_isValid(kicked)) { currentPiece = kicked; return; }
+    for (final kick in TetrominoData.kicksFor(piece.type, from, to)) {
+      final candidate = piece.copyWith(
+        rotation: to,
+        row: piece.row + kick[0],
+        col: piece.col + kick[1],
+      );
+      if (_isValid(candidate)) {
+        currentPiece = candidate;
+        return true;
+      }
     }
 
-    // Floor kick: shift up by 1 row (helps I piece near bottom)
-    final floorKick = rotated.copyWith(row: rotated.row - 1);
-    if (_isValid(floorKick)) { currentPiece = floorKick; }
-
-    // If all kicks fail, ignore the rotation request.
+    // Every kick failed — ignore the rotation request.
+    return false;
   }
+
+  /// Rotate 90° clockwise.
+  bool rotateCW() => rotate(RotationDir.cw);
+
+  /// Rotate 90° counter-clockwise.
+  bool rotateCCW() => rotate(RotationDir.ccw);
 
   // ── Hold System ────────────────────────────────────────────────────────────
 
   /// Swap the current piece with the held piece (or stash it if empty).
   /// Limited to once per piece placement.
-  void holdPiece() {
-    if (!_canAct || !canHold) return;
-    canHold = false;
+  ///
+  /// Returns true when the swap happened.
+  bool holdPiece() {
+    if (!_canAct || !canHold) return false;
 
     final current = currentPiece!.type;
 
     if (holdPieceType == null) {
       holdPieceType = current;
+      // _spawnPiece re-enables hold for the incoming piece, so the flag has to
+      // be cleared *after* it runs — otherwise hold becomes unlimited.
       _spawnPiece();
     } else {
       final held = holdPieceType!;
@@ -250,30 +288,57 @@ class GameEngine {
 
       final shape  = TetrominoData.shapes[held]![0];
       final minRow = shape.map((c) => c[0]).reduce(min);
-      currentPiece = ActivePiece(type: held, row: -minRow, col: _spawnCol);
+      currentPiece = ActivePiece(
+        type: held,
+        row: -minRow,
+        col: _spawnColFor(held),
+      );
 
       if (!_isValid(currentPiece!)) {
         status = GameStatus.gameOver;
         currentPiece = null;
+        return true;
       }
     }
+
+    canHold = false;
+    return true;
   }
 
   // ── Game Tick (driven by provider timer) ───────────────────────────────────
 
-  /// Advance the game one tick: drop the piece 1 row, or lock it if blocked.
-  /// Returns cleared row indices (empty list when nothing was cleared).
+  /// Apply one step of gravity: drop the piece one row, or lock it in place
+  /// when it cannot fall any further.
+  ///
+  /// Returns the cleared row indices (empty when nothing was cleared). Locking
+  /// happens on the same tick the piece grounds — no extra grace period — so
+  /// the game keeps the immediate, snappy response players expect.
   List<int> tick() {
     if (status != GameStatus.playing || currentPiece == null) return [];
     final moved = currentPiece!.copyWith(row: currentPiece!.row + 1);
-    if (_isValid(moved)) { currentPiece = moved; return []; }
-    return _lockPiece();
+    if (_isValid(moved)) {
+      currentPiece = moved;
+      return [];
+    }
+    return lockPiece();
+  }
+
+  /// True when the piece is resting on the stack or the floor.
+  bool get isGrounded {
+    if (!_canAct) return false;
+    return !_isValid(currentPiece!.copyWith(row: currentPiece!.row + 1));
   }
 
   // ── Piece Locking & Line Clearing ──────────────────────────────────────────
 
-  List<int> _lockPiece() {
+  /// Commit the current piece to the board, clear any full rows and spawn the
+  /// next piece. Returns the cleared row indices.
+  List<int> lockPiece() {
     if (currentPiece == null) return [];
+
+    // A piece that comes to rest with any cell above the board is a lock out:
+    // those cells cannot be stored, so the game ends rather than losing them.
+    final lockedOut = currentPiece!.cells.any((c) => c.row < 0);
 
     // Commit all visible cells to the board.
     for (final cell in currentPiece!.cells) {
@@ -282,10 +347,16 @@ class GameEngine {
         board[cell.row][cell.col] = currentPiece!.type.colorIndex;
       }
     }
+    boardVersion++;
     currentPiece = null;
 
     final cleared = _clearLines();
-    _spawnPiece();
+
+    if (lockedOut) {
+      status = GameStatus.gameOver;
+    } else {
+      _spawnPiece();
+    }
     return cleared;
   }
 
@@ -305,6 +376,7 @@ class GameEngine {
     for (int i = 0; i < fullRows.length; i++) {
       board.insert(0, List.filled(boardCols, 0));
     }
+    boardVersion++;
 
     _applyScore(fullRows.length);
     return fullRows;
@@ -313,14 +385,19 @@ class GameEngine {
   void _applyScore(int lineCount) {
     // Base scores per user spec, multiplied by current level.
     const basePoints = [0, 100, 300, 500, 800];
-    score += (lineCount <= 4 ? basePoints[lineCount] : 800) * level;
+    _addScore((lineCount <= 4 ? basePoints[lineCount] : 800) * level);
 
     linesCleared += lineCount;
 
     // Marathon mode levels up every 25 lines; all other modes every 10.
     final linesPerLevel = gameMode == GameMode.marathon ? 25 : 10;
     level = (linesCleared ~/ linesPerLevel) + 1;
+  }
 
+  /// Single funnel for every point awarded, so [highScore] can never drift
+  /// behind [score] — soft/hard drop points count towards the record too.
+  void _addScore(int points) {
+    score += points;
     if (score > highScore) highScore = score;
   }
 

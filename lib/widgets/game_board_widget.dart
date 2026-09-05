@@ -10,12 +10,13 @@ import 'particle_overlay.dart';
 /// Wraps [BoardPainter] and [ParticleOverlay] inside a [GestureDetector]
 /// that maps touch gestures to game actions:
 ///
-/// | Gesture       | Action      |
-/// |---------------|-------------|
-/// | Short tap     | Rotate CW   |
-/// | Swipe ←/→    | Move        |
-/// | Swipe ↓       | Soft drop   |
-/// | Long press    | Hard drop   |
+/// | Gesture        | Action      |
+/// |----------------|-------------|
+/// | Short tap      | Rotate CW   |
+/// | Swipe ←/→      | Move        |
+/// | Swipe ↓        | Soft drop   |
+/// | Fast flick ↓   | Hard drop   |
+/// | Long press     | Hard drop   |
 class GameBoardWidget extends StatefulWidget {
   const GameBoardWidget({super.key});
 
@@ -33,11 +34,18 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
   // Pixels required to register one step of movement.
   static const double _stepPx = 18.0;
 
+  /// Downward flick speed (px/s) that triggers a hard drop on release.
+  ///
+  /// Deliberately high: a normal soft-drop swipe can release at over
+  /// 1000 px/s, and having those slam the piece down made the controls feel
+  /// unpredictable. Only a sharp flick should hard drop.
+  static const double _flickVelocity = 2200.0;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Maintain 1:2 aspect ratio (10 cols : 20 rows).
+        // Preserve the board's 12:20 aspect ratio inside the available space.
         final cellSize = (constraints.maxWidth  / GameEngine.boardCols)
             .clamp(0.0, constraints.maxHeight / GameEngine.boardRows);
         final boardW = cellSize * GameEngine.boardCols;
@@ -84,6 +92,7 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
                           size: Size(boardW, boardH),
                           painter: BoardPainter(
                             board:        provider.board,
+                            boardVersion: provider.boardVersion,
                             currentPiece: provider.currentPiece,
                             ghostPiece:   provider.ghostPiece,
                             isDark:       isDark,
@@ -94,11 +103,10 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
                       // ── Particle explosion on line clear ──────────────────
                       if (provider.clearedRows.isNotEmpty)
                         ParticleOverlay(
-                          // New key forces re-creation on every distinct clear.
-                          key: ValueKey(
-                            '${provider.clearedRows.join(',')}'
-                            '_${DateTime.now().millisecondsSinceEpoch}',
-                          ),
+                          // Keyed by the burst id so the overlay is created
+                          // once per clear. Keying on a timestamp would rebuild
+                          // it on every notify and restart the animation.
+                          key: ValueKey(provider.clearId),
                           clearedRows: List<int>.from(provider.clearedRows),
                           cellSize:   cellSize,
                           boardWidth: boardW,
@@ -116,12 +124,16 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
 
   // ── Gesture handlers ────────────────────────────────────────────────────────
 
+  bool get _isPlaying =>
+      context.read<GameProvider>().status == GameStatus.playing;
+
   void _onTap() {
-    final provider = context.read<GameProvider>();
-    if (provider.status == GameStatus.playing) provider.rotateCW();
+    if (_isPlaying) context.read<GameProvider>().rotateCW();
   }
 
-  void _onLongPress() => context.read<GameProvider>().hardDrop();
+  void _onLongPress() {
+    if (_isPlaying) context.read<GameProvider>().hardDrop();
+  }
 
   void _onPanStart(DragStartDetails d) {
     _isPanning = false;
@@ -152,8 +164,19 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
     }
   }
 
-  void _onPanEnd(DragEndDetails _) {
+  void _onPanEnd(DragEndDetails d) {
+    final velocity = d.velocity.pixelsPerSecond;
+    final wasPanning = _isPanning;
     _onPanCancel();
+
+    // A fast downward flick hard-drops, so players are not stuck with the
+    // slower long-press when they want to slam a piece down.
+    if (wasPanning &&
+        velocity.dy > _flickVelocity &&
+        velocity.dy.abs() > velocity.dx.abs() &&
+        _isPlaying) {
+      context.read<GameProvider>().hardDrop();
+    }
   }
 
   void _onPanCancel() {

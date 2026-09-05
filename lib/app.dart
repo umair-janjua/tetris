@@ -32,7 +32,7 @@ class CubiclesApp extends StatelessWidget {
                 settings: audioCtx.read<SettingsProvider>(),
               ),
               child: Consumer<SettingsProvider>(
-                builder: (_, settings, __) => MaterialApp(
+                builder: (_, settings, _) => MaterialApp(
                   title: 'Cubicles',
                   debugShowCheckedModeBanner: false,
                   theme: AppTheme.lightTheme,

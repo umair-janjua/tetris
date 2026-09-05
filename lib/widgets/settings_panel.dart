@@ -10,9 +10,12 @@ import '../theme/app_theme.dart';
 /// Opens the settings panel as an animated bottom sheet.
 ///
 /// Pass [onOpen] to run code before the sheet opens (e.g. pause the game).
-void showSettingsSheet(BuildContext context, {VoidCallback? onOpen}) {
+///
+/// Returns a future that completes when the sheet is dismissed, so callers can
+/// restore whatever state [onOpen] changed.
+Future<void> showSettingsSheet(BuildContext context, {VoidCallback? onOpen}) {
   onOpen?.call();
-  showModalBottomSheet(
+  return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -46,12 +49,12 @@ class SettingsPanel extends StatelessWidget {
         border: Border.all(color: tc.border, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: tc.accent.withOpacity(0.12),
+            color: tc.accent.withValues(alpha: 0.12),
             blurRadius: 32,
             spreadRadius: 2,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withValues(alpha: 0.35),
             blurRadius: 20,
           ),
         ],
@@ -166,7 +169,7 @@ class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         height: 1,
-        color: tc.border.withOpacity(0.5),
+        color: tc.border.withValues(alpha: 0.5),
         margin: const EdgeInsets.symmetric(vertical: 2),
       );
 }
@@ -200,13 +203,13 @@ class _SwitchRow extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: value
-                  ? tc.accent.withOpacity(0.15)
-                  : tc.border.withOpacity(0.3),
+                  ? tc.accent.withValues(alpha: 0.15)
+                  : tc.border.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: value
-                    ? tc.accent.withOpacity(0.4)
-                    : tc.border.withOpacity(0.5),
+                    ? tc.accent.withValues(alpha: 0.4)
+                    : tc.border.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -245,7 +248,7 @@ class _SwitchRow extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeColor: tc.accent,
+            activeThumbColor: tc.accent,
           ),
         ],
       ),
@@ -273,10 +276,10 @@ class _ModeRow extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: tc.warning.withOpacity(0.12),
+                  color: tc.warning.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: tc.warning.withOpacity(0.35),
+                    color: tc.warning.withValues(alpha: 0.35),
                     width: 1,
                   ),
                 ),
@@ -353,11 +356,11 @@ class _ModeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? tc.accent.withOpacity(0.18)
-              : tc.surfaceHigh.withOpacity(0.4),
+              ? tc.accent.withValues(alpha: 0.18)
+              : tc.surfaceHigh.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? tc.accent.withOpacity(0.6) : tc.border,
+            color: selected ? tc.accent.withValues(alpha: 0.6) : tc.border,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -397,13 +400,13 @@ class _ThemeRow extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF6366F1).withOpacity(0.15)
-                  : const Color(0xFFF59E0B).withOpacity(0.15),
+                  ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+                  : const Color(0xFFF59E0B).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isDark
-                    ? const Color(0xFF6366F1).withOpacity(0.4)
-                    : const Color(0xFFF59E0B).withOpacity(0.4),
+                    ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+                    : const Color(0xFFF59E0B).withValues(alpha: 0.4),
                 width: 1,
               ),
             ),
@@ -450,13 +453,13 @@ class _ThemeRow extends StatelessWidget {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFF3730A3).withOpacity(0.3)
+                    ? const Color(0xFF3730A3).withValues(alpha: 0.3)
                     : const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isDark
-                      ? const Color(0xFF6366F1).withOpacity(0.5)
-                      : const Color(0xFFF59E0B).withOpacity(0.5),
+                      ? const Color(0xFF6366F1).withValues(alpha: 0.5)
+                      : const Color(0xFFF59E0B).withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),
@@ -479,7 +482,7 @@ class _ThemeRow extends StatelessWidget {
                             color: (isDark
                                     ? const Color(0xFF6366F1)
                                     : const Color(0xFFF59E0B))
-                                .withOpacity(0.4),
+                                .withValues(alpha: 0.4),
                             blurRadius: 8,
                           ),
                         ],

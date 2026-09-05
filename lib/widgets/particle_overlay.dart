@@ -69,7 +69,7 @@ class _ParticleOverlayState extends State<ParticleOverlay>
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) => CustomPaint(
+        builder: (_, _) => CustomPaint(
           size: Size.infinite,
           painter: _ParticlePainter(particles: _particles, t: _ctrl.value),
         ),
@@ -113,10 +113,13 @@ class _ParticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final opacity = (1.0 - t).clamp(0.0, 1.0);
+    // One Paint reused across the burst — allocating per particle per frame
+    // churned the heap ~5k times a second during a clear.
+    final paint = Paint();
     for (final p in particles) {
       final pos     = p.posAt(t);
       final curSize = p.size * (1 - t * 0.45);
-      final paint   = Paint()..color = p.color.withOpacity(opacity);
+      paint.color   = p.color.withValues(alpha: opacity);
 
       if (p.round) {
         canvas.drawCircle(pos, curSize, paint);

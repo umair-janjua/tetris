@@ -12,30 +12,36 @@ enum TetrominoType {
   int get colorIndex => index + 1;
 }
 
+/// Direction of a rotation request.
+enum RotationDir { cw, ccw }
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// TETROMINO SHAPES  (Standard Rotation System)
+// TETROMINO SHAPES  (Super Rotation System)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Shape data for all 7 tetrominos across 4 rotations.
+/// Shape data for all 7 tetrominos across 4 rotations, in SRS layout.
 ///
-/// Each piece is defined in a 4×4 bounding box.
-/// Each rotation is a list of [row, col] cell offsets.
-/// Rotation order: 0° → 90° CW → 180° → 270° CW.
+/// J, L, S, T and Z rotate inside a 3×3 box; I inside a 4×4 box; O never moves.
+/// Each rotation is a list of `[row, col]` cell offsets from the box origin.
+/// Rotation order: 0 → R (90° CW) → 2 (180°) → L (270° CW).
+///
+/// Keeping the exact SRS layout matters: the wall-kick tables in [kicksFor]
+/// are only correct for pieces defined in these boxes at these offsets.
 class TetrominoData {
   TetrominoData._();
 
   static const Map<TetrominoType, List<List<List<int>>>> shapes = {
 
     // ── I ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  . . . .     Rotation 1:  . . X .
-    //               X X X X                  . . X .
-    //               . . . .                  . . X .
-    //               . . . .                  . . X .
+    //  0:  . . . .     R:  . . X .     2:  . . . .     L:  . X . .
+    //      X X X X         . . X .         . . . .         . X . .
+    //      . . . .         . . X .         X X X X         . X . .
+    //      . . . .         . . X .         . . . .         . X . .
     TetrominoType.I: [
-      [[1, 0], [1, 1], [1, 2], [1, 3]], // 0°
-      [[0, 2], [1, 2], [2, 2], [3, 2]], // 90°
-      [[2, 0], [2, 1], [2, 2], [2, 3]], // 180°
-      [[0, 1], [1, 1], [2, 1], [3, 1]], // 270°
+      [[1, 0], [1, 1], [1, 2], [1, 3]], // 0
+      [[0, 2], [1, 2], [2, 2], [3, 2]], // R
+      [[2, 0], [2, 1], [2, 2], [2, 3]], // 2
+      [[0, 1], [1, 1], [2, 1], [3, 1]], // L
     ],
 
     // ── O ────────────────────────────────────────────────────────────────────
@@ -49,58 +55,101 @@ class TetrominoData {
     ],
 
     // ── T ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  . X .    Rotation 1:  . X .    Rotation 2:  . . .    Rotation 3:  . X .
-    //               X X X                . X X                  X X X                X X .
-    //               . . .                . X .                  . X .                . X .
+    //  0:  . X .     R:  . X .     2:  . . .     L:  . X .
+    //      X X X         . X X         X X X         X X .
+    //      . . .         . X .         . X .         . X .
     TetrominoType.T: [
-      [[0, 1], [1, 0], [1, 1], [1, 2]], // 0°  – stem up
-      [[0, 1], [1, 1], [1, 2], [2, 1]], // 90° – stem right
-      [[1, 0], [1, 1], [1, 2], [2, 1]], // 180° – stem down
-      [[0, 1], [1, 0], [1, 1], [2, 1]], // 270° – stem left
+      [[0, 1], [1, 0], [1, 1], [1, 2]], // 0
+      [[0, 1], [1, 1], [1, 2], [2, 1]], // R
+      [[1, 0], [1, 1], [1, 2], [2, 1]], // 2
+      [[0, 1], [1, 0], [1, 1], [2, 1]], // L
     ],
 
     // ── S ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  . X X    Rotation 1:  X .
-    //               X X .                X X
-    //               . . .                . X
+    //  0:  . X X     R:  . X .     2:  . . .     L:  X . .
+    //      X X .         . X X         . X X         X X .
+    //      . . .         . . X         X X .         . X .
     TetrominoType.S: [
-      [[0, 1], [0, 2], [1, 0], [1, 1]], // 0°
-      [[0, 0], [1, 0], [1, 1], [2, 1]], // 90°
-      [[0, 1], [0, 2], [1, 0], [1, 1]], // 180° (same as 0°)
-      [[0, 0], [1, 0], [1, 1], [2, 1]], // 270° (same as 90°)
+      [[0, 1], [0, 2], [1, 0], [1, 1]], // 0
+      [[0, 1], [1, 1], [1, 2], [2, 2]], // R
+      [[1, 1], [1, 2], [2, 0], [2, 1]], // 2
+      [[0, 0], [1, 0], [1, 1], [2, 1]], // L
     ],
 
     // ── Z ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  X X .    Rotation 1:  . X
-    //               . X X                X X
-    //               . . .                X .
+    //  0:  X X .     R:  . . X     2:  . . .     L:  . X .
+    //      . X X         . X X         X X .         X X .
+    //      . . .         . X .         . X X         X . .
     TetrominoType.Z: [
-      [[0, 0], [0, 1], [1, 1], [1, 2]], // 0°
-      [[0, 1], [1, 0], [1, 1], [2, 0]], // 90°
-      [[0, 0], [0, 1], [1, 1], [1, 2]], // 180° (same as 0°)
-      [[0, 1], [1, 0], [1, 1], [2, 0]], // 270° (same as 90°)
+      [[0, 0], [0, 1], [1, 1], [1, 2]], // 0
+      [[0, 2], [1, 1], [1, 2], [2, 1]], // R
+      [[1, 0], [1, 1], [2, 1], [2, 2]], // 2
+      [[0, 1], [1, 0], [1, 1], [2, 0]], // L
     ],
 
     // ── J ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  X . .    Rotation 1:  X X .    Rotation 2:  . . .    Rotation 3:  . X .
-    //               X X X                X . .                  X X X                . X .
-    //               . . .                X . .                  . . X                . X X
+    //  0:  X . .     R:  . X X     2:  . . .     L:  . X .
+    //      X X X         . X .         X X X         . X .
+    //      . . .         . X .         . . X         X X .
     TetrominoType.J: [
-      [[0, 0], [1, 0], [1, 1], [1, 2]], // 0°
-      [[0, 0], [0, 1], [1, 0], [2, 0]], // 90°
-      [[1, 0], [1, 1], [1, 2], [2, 2]], // 180°
-      [[0, 2], [1, 2], [2, 1], [2, 2]], // 270°
+      [[0, 0], [1, 0], [1, 1], [1, 2]], // 0
+      [[0, 1], [0, 2], [1, 1], [2, 1]], // R
+      [[1, 0], [1, 1], [1, 2], [2, 2]], // 2
+      [[0, 1], [1, 1], [2, 0], [2, 1]], // L
     ],
 
     // ── L ────────────────────────────────────────────────────────────────────
-    //  Rotation 0:  . . X    Rotation 1:  X . .    Rotation 2:  . . .    Rotation 3:  . X X
-    //               X X X                X . .                  X X X                . . X
-    //               . . .                X X .                  X . .                . . X
+    //  0:  . . X     R:  . X .     2:  . . .     L:  X X .
+    //      X X X         . X .         X X X         . X .
+    //      . . .         . X X         X . .         . X .
     TetrominoType.L: [
-      [[0, 2], [1, 0], [1, 1], [1, 2]], // 0°
-      [[0, 0], [1, 0], [2, 0], [2, 1]], // 90°
-      [[1, 0], [1, 1], [1, 2], [2, 0]], // 180°
-      [[0, 1], [0, 2], [1, 2], [2, 2]], // 270°
+      [[0, 2], [1, 0], [1, 1], [1, 2]], // 0
+      [[0, 1], [1, 1], [2, 1], [2, 2]], // R
+      [[1, 0], [1, 1], [1, 2], [2, 0]], // 2
+      [[0, 0], [0, 1], [1, 1], [2, 1]], // L
     ],
   };
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // WALL KICK TABLES
+  // ═════════════════════════════════════════════════════════════════════════
+  //
+  // Offsets are stored as [dRow, dCol] in *board* coordinates, where dRow is
+  // positive downwards. The published SRS tables use (x, y) with y positive
+  // upwards, so every entry here is that table's (x, y) written as [-y, x].
+  //
+  // The map key encodes the transition as `from * 4 + to`.
+
+  static const Map<int, List<List<int>>> _jlstzKicks = {
+    0 * 4 + 1: [[0, 0], [0, -1], [-1, -1], [ 2, 0], [ 2, -1]], // 0 → R
+    1 * 4 + 0: [[0, 0], [0,  1], [ 1,  1], [-2, 0], [-2,  1]], // R → 0
+    1 * 4 + 2: [[0, 0], [0,  1], [ 1,  1], [-2, 0], [-2,  1]], // R → 2
+    2 * 4 + 1: [[0, 0], [0, -1], [-1, -1], [ 2, 0], [ 2, -1]], // 2 → R
+    2 * 4 + 3: [[0, 0], [0,  1], [-1,  1], [ 2, 0], [ 2,  1]], // 2 → L
+    3 * 4 + 2: [[0, 0], [0, -1], [ 1, -1], [-2, 0], [-2, -1]], // L → 2
+    3 * 4 + 0: [[0, 0], [0, -1], [ 1, -1], [-2, 0], [-2, -1]], // L → 0
+    0 * 4 + 3: [[0, 0], [0,  1], [-1,  1], [ 2, 0], [ 2,  1]], // 0 → L
+  };
+
+  static const Map<int, List<List<int>>> _iKicks = {
+    0 * 4 + 1: [[0, 0], [0, -2], [0,  1], [ 1, -2], [-2,  1]], // 0 → R
+    1 * 4 + 0: [[0, 0], [0,  2], [0, -1], [-1,  2], [ 2, -1]], // R → 0
+    1 * 4 + 2: [[0, 0], [0, -1], [0,  2], [-2, -1], [ 1,  2]], // R → 2
+    2 * 4 + 1: [[0, 0], [0,  1], [0, -2], [ 2,  1], [-1, -2]], // 2 → R
+    2 * 4 + 3: [[0, 0], [0,  2], [0, -1], [-1,  2], [ 2, -1]], // 2 → L
+    3 * 4 + 2: [[0, 0], [0, -2], [0,  1], [ 1, -2], [-2,  1]], // L → 2
+    3 * 4 + 0: [[0, 0], [0,  1], [0, -2], [ 2,  1], [-1, -2]], // L → 0
+    0 * 4 + 3: [[0, 0], [0, -1], [0,  2], [-2, -1], [ 1,  2]], // 0 → L
+  };
+
+  /// Candidate `[dRow, dCol]` offsets to try, in order, when rotating [type]
+  /// from rotation [from] to rotation [to].
+  ///
+  /// The first entry is always the no-kick case. O never kicks — it occupies
+  /// the same cells in every rotation.
+  static List<List<int>> kicksFor(TetrominoType type, int from, int to) {
+    if (type == TetrominoType.O) return const [[0, 0]];
+    final table = type == TetrominoType.I ? _iKicks : _jlstzKicks;
+    return table[from * 4 + to] ?? const [[0, 0]];
+  }
 }

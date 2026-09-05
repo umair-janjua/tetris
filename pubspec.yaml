@@ -38,10 +38,10 @@ dependencies:
   provider: ^6.1.2
   # Local storage for high score persistence
   shared_preferences: ^2.3.2
-  # Premium typography
-  google_fonts: ^6.2.1
   # Audio playback
   audioplayers: ^6.4.0
+  # Native splash screen (imported by lib/main.dart)
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
@@ -54,7 +54,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
-  flutter_native_splash: ^2.4.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -70,7 +69,26 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/audio/
-    - assets/icon/
+    # assets/icon/ is deliberately NOT listed: those PNGs are build-time
+    # sources for flutter_launcher_icons / flutter_native_splash, which bake
+    # them into native platform resources. Bundling them too shipped ~1.7MB
+    # of images no code ever loads.
+
+  # Outfit is bundled rather than fetched at runtime, so typography is correct
+  # offline and on first launch.
+  fonts:
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-400.ttf
+          weight: 400
+        - asset: assets/fonts/Outfit-600.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit-700.ttf
+          weight: 700
+        - asset: assets/fonts/Outfit-800.ttf
+          weight: 800
+        - asset: assets/fonts/Outfit-900.ttf
+          weight: 900
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -103,10 +121,13 @@ flutter_launcher_icons:
   # Source image (1024×1024 PNG)
   image_path: "assets/icon/app_icon.png"
 
-  # Android – adaptive icon (API 26+) with neon pieces on dark bg
+  # Android – adaptive icon (API 26+) with neon cubes on dark bg.
+  # The foreground MUST be its own transparent asset: Android masks it to a
+  # circle/squircle, so the full-bleed app_icon would be cropped and would
+  # also double up its baked-in background over adaptive_icon_background.
   android: true
   adaptive_icon_background: "#0F172A"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
   min_sdk_android: 21
 
   # iOS
@@ -136,7 +157,7 @@ flutter_native_splash:
   # Background matches the app's dark navy theme
   color: "#0F172A"
 
-  # Centered logo (glowing T-piece + TETRIS wordmark)
+  # Centered logo (glowing cube cluster + CUBICLES wordmark)
   image: assets/icon/splash_logo.png
 
   # Immersive full-screen splash
@@ -144,9 +165,11 @@ flutter_native_splash:
 
   # Android
   android: true
+  # Android 12+ draws the splash icon inside a masked circle, so it needs a
+  # dedicated 1152px asset with the mark inside the 768px safe area.
   android_12:
     color: "#0F172A"
-    image: assets/icon/splash_logo.png
+    image: assets/icon/splash_logo_android12.png
     icon_background_color: "#0F172A"
 
   # iOS

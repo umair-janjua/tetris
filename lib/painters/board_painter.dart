@@ -8,12 +8,19 @@ import '../theme/app_theme.dart';
 /// holographic laser ghost piece, and glowing falling piece with corner brackets.
 class BoardPainter extends CustomPainter {
   final List<List<int>> board;
+
+  /// Version counter for [board]. The engine mutates the same list in place,
+  /// so identity comparison can never detect a change — [shouldRepaint]
+  /// compares this instead.
+  final int boardVersion;
+
   final ActivePiece? currentPiece;
   final ActivePiece? ghostPiece;
   final bool isDark;
 
   const BoardPainter({
     required this.board,
+    required this.boardVersion,
     this.currentPiece,
     this.ghostPiece,
     this.isDark = true,
@@ -278,8 +285,18 @@ class BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(BoardPainter old) =>
-      old.board != board ||
-      old.currentPiece != currentPiece ||
-      old.ghostPiece != ghostPiece ||
+      old.boardVersion != boardVersion ||
+      !_samePiece(old.currentPiece, currentPiece) ||
+      !_samePiece(old.ghostPiece, ghostPiece) ||
       old.isDark != isDark;
+
+  /// [ActivePiece] is immutable but has no value equality, so compare fields.
+  static bool _samePiece(ActivePiece? a, ActivePiece? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return false;
+    return a.type == b.type &&
+        a.row == b.row &&
+        a.col == b.col &&
+        a.rotation == b.rotation;
+  }
 }

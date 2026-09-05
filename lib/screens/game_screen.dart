@@ -19,7 +19,7 @@ import 'pause_overlay.dart';
 /// - Wide (tablets/desktop): 160 px side panels with controls hint
 ///
 /// Keyboard shortcuts (desktop):
-///   Arrow ← → : move   |  Arrow ↑ / X : rotate
+///   Arrow ← → : move   |  Arrow ↑ / X : rotate CW  |  Z / Ctrl : rotate CCW
 ///   Arrow ↓   : soft drop   |  Space : hard drop
 ///   C / Shift : hold   |  P / Esc : pause
 ///   S         : settings
@@ -29,35 +29,64 @@ class GameScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tc = ThemeColors.of(context);
-    return Focus(
-      autofocus: true,
-      onKeyEvent: _handleKey,
-      child: Scaffold(
-        backgroundColor: tc.background,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              // ── Main game layout ─────────────────────────────────────────
-              Column(
-                children: [
-                  _Header(),
-                  Expanded(child: _GameArea()),
-                ],
-              ),
+    return PopScope(
+      // Intercept the system back gesture so the round is stopped before the
+      // route goes away — otherwise the piece keeps falling off-screen.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        leaveGame(context);
+      },
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: _handleKey,
+        child: Scaffold(
+          backgroundColor: tc.background,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // ── Main game layout ─────────────────────────────────────
+                Column(
+                  children: [
+                    _Header(),
+                    Expanded(child: _GameArea()),
+                  ],
+                ),
 
-              // ── State overlays ───────────────────────────────────────────
-              Consumer<GameProvider>(
-                builder: (_, p, __) {
-                  if (p.status == GameStatus.paused)   return const PauseOverlay();
-                  if (p.status == GameStatus.gameOver) return const GameOverOverlay();
-                  return const SizedBox.shrink();
-                },
-              ),
-            ],
+                // ── State overlays ───────────────────────────────────────
+                Consumer<GameProvider>(
+                  builder: (_, p, _) {
+                    if (p.status == GameStatus.paused)   return const PauseOverlay();
+                    if (p.status == GameStatus.gameOver) return const GameOverOverlay();
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Stop the round and leave the game screen.
+  ///
+  /// Pausing first matters: the provider's timers and background music are
+  /// owned above this route and would otherwise keep running invisibly.
+  static void leaveGame(BuildContext context) {
+    context.read<GameProvider>().leaveGame();
+    Navigator.of(context).pop();
+  }
+
+  /// Open settings, pausing for the duration and restoring play afterwards.
+  static Future<void> openSettings(BuildContext context) async {
+    final p = context.read<GameProvider>();
+    final wasPlaying = p.status == GameStatus.playing;
+    await showSettingsSheet(context, onOpen: () {
+      if (wasPlaying) p.pauseGame();
+    });
+    // Only auto-resume a game we paused ourselves.
+    if (wasPlaying && p.status == GameStatus.paused) p.resumeGame();
   }
 
   /// Handle physical keyboard input for desktop / emulator users.
@@ -78,6 +107,10 @@ class GameScreen extends StatelessWidget {
       case LogicalKeyboardKey.arrowUp:
       case LogicalKeyboardKey.keyX:
         p.rotateCW(); return KeyEventResult.handled;
+      case LogicalKeyboardKey.keyZ:
+      case LogicalKeyboardKey.controlLeft:
+      case LogicalKeyboardKey.controlRight:
+        p.rotateCCW(); return KeyEventResult.handled;
       case LogicalKeyboardKey.space:
         p.hardDrop(); return KeyEventResult.handled;
       case LogicalKeyboardKey.keyC:
@@ -87,9 +120,7 @@ class GameScreen extends StatelessWidget {
       case LogicalKeyboardKey.keyM:
         ctx.read<AudioService>().toggleMute(); return KeyEventResult.handled;
       case LogicalKeyboardKey.keyS:
-        showSettingsSheet(ctx, onOpen: () {
-          if (p.status == GameStatus.playing) p.pauseGame();
-        });
+        openSettings(ctx);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyP:
       case LogicalKeyboardKey.escape:
@@ -120,7 +151,7 @@ class _Header extends StatelessWidget {
             children: [
               _IconBtn(
                 icon: Icons.menu_rounded,
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () => GameScreen.leaveGame(context),
                 tooltip: 'Menu',
                 tc: tc,
               ),
@@ -134,7 +165,7 @@ class _Header extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                         shadows: [
                           Shadow(
-                            color: tc.accent.withOpacity(0.5),
+                            color: tc.accent.withValues(alpha: 0.5),
                             blurRadius: 14,
                           ),
                         ],
@@ -142,23 +173,16 @@ class _Header extends StatelessWidget {
                 ),
               ),
               // Settings
-              Consumer<GameProvider>(
-                builder: (_, p, __) => _IconBtn(
-                  icon: Icons.settings_rounded,
-                  onTap: () => showSettingsSheet(
-                    context,
-                    onOpen: () {
-                      if (p.status == GameStatus.playing) p.pauseGame();
-                    },
-                  ),
-                  tooltip: 'Settings',
-                  tc: tc,
-                ),
+              _IconBtn(
+                icon: Icons.settings_rounded,
+                onTap: () => GameScreen.openSettings(context),
+                tooltip: 'Settings',
+                tc: tc,
               ),
               const SizedBox(width: 4),
               // Mute toggle
               Consumer<AudioService>(
-                builder: (_, audio, __) => _IconBtn(
+                builder: (_, audio, _) => _IconBtn(
                   icon: audio.isMuted
                       ? Icons.volume_off_rounded
                       : Icons.volume_up_rounded,
@@ -170,7 +194,7 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 4),
               // Pause / Resume
               Consumer<GameProvider>(
-                builder: (_, p, __) => _IconBtn(
+                builder: (_, p, _) => _IconBtn(
                   icon: p.status == GameStatus.paused
                       ? Icons.play_arrow_rounded
                       : Icons.pause_rounded,
@@ -200,7 +224,6 @@ class _ScoreBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<GameProvider>();
     final tc = ThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -221,13 +244,29 @@ class _ScoreBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _ScoreStat(label: 'SCORE', value: p.score, accent: tc.accent),
+            _ScoreStat(
+              label: 'SCORE',
+              accent: tc.accent,
+              selector: (p) => p.score,
+            ),
             _VertDivider(tc: tc),
-            _ScoreStat(label: 'BEST',  value: p.highScore, accent: AppColors.warning),
+            _ScoreStat(
+              label: 'BEST',
+              accent: AppColors.warning,
+              selector: (p) => p.highScore,
+            ),
             _VertDivider(tc: tc),
-            _ScoreStat(label: 'LEVEL', value: p.level,  accent: AppColors.success),
+            _ScoreStat(
+              label: 'LEVEL',
+              accent: AppColors.success,
+              selector: (p) => p.level,
+            ),
             _VertDivider(tc: tc),
-            _ScoreStat(label: 'LINES', value: p.linesCleared, accent: const Color(0xFFD500F9)),
+            _ScoreStat(
+              label: 'LINES',
+              accent: const Color(0xFFD500F9),
+              selector: (p) => p.linesCleared,
+            ),
           ],
         ),
       ),
@@ -249,18 +288,22 @@ class _VertDivider extends StatelessWidget {
 
 class _ScoreStat extends StatelessWidget {
   final String label;
-  final int value;
   final Color accent;
+
+  /// Picks this stat's value out of the provider. Using `select` keeps the
+  /// widget out of the rebuild path for every unrelated notification.
+  final int Function(GameProvider) selector;
 
   const _ScoreStat({
     required this.label,
-    required this.value,
     required this.accent,
+    required this.selector,
   });
 
   @override
   Widget build(BuildContext context) {
     final tc = ThemeColors.of(context);
+    final value = context.select<GameProvider, int>(selector);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -347,22 +390,25 @@ class _GameArea extends StatelessWidget {
             // ── Top strip: Hold | Next (+ keyboard hints on wide screens) ──
             Padding(
               padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 6),
-              child: Consumer<GameProvider>(
-                builder: (_, p, _) => Row(
+              child: Builder(
+                builder: (context) => Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _PreviewCard(
                       label: 'HOLD',
-                      pieceType: p.holdPieceType,
+                      pieceType: context.select<GameProvider, TetrominoType?>(
+                          (p) => p.holdPieceType),
                       previewSize: previewSz,
-                      isDisabled: !p.canHold,
-                      onTap: p.holdPiece,
+                      isDisabled: !context.select<GameProvider, bool>(
+                          (p) => p.canHold),
+                      onTap: () => context.read<GameProvider>().holdPiece(),
                       tc: tc,
                     ),
                     const SizedBox(width: 10),
                     _PreviewCard(
                       label: 'NEXT',
-                      pieceType: p.nextPieceType,
+                      pieceType: context.select<GameProvider, TetrominoType?>(
+                          (p) => p.nextPieceType),
                       previewSize: previewSz,
                       tc: tc,
                     ),
@@ -469,7 +515,8 @@ class _PreviewCard extends StatelessWidget {
 class _KeyboardHints extends StatelessWidget {
   static const _hints = [
     ('← →', 'Move'),
-    ('↑ / X', 'Rotate'),
+    ('↑ / X', 'Rotate CW'),
+    ('Z / Ctrl', 'Rotate CCW'),
     ('↓', 'Soft drop'),
     ('SPACE', 'Hard drop'),
     ('C', 'Hold'),
@@ -510,10 +557,10 @@ class _KeyboardHints extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
-                      color: tc.accent.withOpacity(0.1),
+                      color: tc.accent.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                          color: tc.accent.withOpacity(0.25)),
+                          color: tc.accent.withValues(alpha: 0.25)),
                     ),
                     child: Text(
                       h.$1,

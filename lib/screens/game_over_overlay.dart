@@ -43,7 +43,7 @@ class _GameOverOverlayState extends State<GameOverOverlay>
       child: FadeTransition(
         opacity: _fade,
         child: Container(
-          color: Colors.black.withOpacity(0.82),
+          color: Colors.black.withValues(alpha: 0.82),
           alignment: Alignment.center,
           child: ScaleTransition(
             scale: _scale,
@@ -54,10 +54,10 @@ class _GameOverOverlayState extends State<GameOverOverlay>
                 color: tc.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                    color: AppColors.error.withOpacity(0.45), width: 1.5),
+                    color: AppColors.error.withValues(alpha: 0.45), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.error.withOpacity(0.12),
+                    color: AppColors.error.withValues(alpha: 0.12),
                     blurRadius: 40, spreadRadius: 4,
                   ),
                 ],

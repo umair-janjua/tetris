@@ -6,9 +6,6 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# Google Fonts
--keep class com.google.fonts.** { *; }
-
 # Audio Players
 -keep class xyz.luan.audioplayers.** { *; }
 

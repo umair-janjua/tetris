@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COLOR PALETTE
@@ -120,36 +119,56 @@ class AppTheme {
 
   // ── Shared helpers ─────────────────────────────────────────────────────────
 
+  /// The bundled Outfit family. Declared in pubspec.yaml under
+  /// `assets/fonts/`, so the app never fetches a font at runtime — text
+  /// renders correctly offline and on first launch.
+  static const String fontFamily = 'Outfit';
+
+  /// [TextStyle] in the bundled Outfit family.
+  static TextStyle _outfit({
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? letterSpacing,
+    Color? color,
+  }) =>
+      TextStyle(
+        fontFamily: fontFamily,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        color: color,
+      );
+
   static TextTheme _buildTextTheme({
     required TextTheme base,
     required Color primaryColor,
     required Color secondaryColor,
     required Color mutedColor,
   }) {
-    return GoogleFonts.outfitTextTheme(base).copyWith(
-      displayLarge: GoogleFonts.outfit(
+    return base.apply(fontFamily: fontFamily).copyWith(
+      displayLarge: _outfit(
         fontSize: 52, fontWeight: FontWeight.w900,
         letterSpacing: 5, color: primaryColor,
       ),
-      headlineLarge: GoogleFonts.outfit(
+      headlineLarge: _outfit(
         fontSize: 32, fontWeight: FontWeight.w800,
         letterSpacing: 2, color: primaryColor,
       ),
-      headlineMedium: GoogleFonts.outfit(
+      headlineMedium: _outfit(
         fontSize: 22, fontWeight: FontWeight.w700,
         letterSpacing: 1.5, color: primaryColor,
       ),
-      titleLarge: GoogleFonts.outfit(
+      titleLarge: _outfit(
         fontSize: 18, fontWeight: FontWeight.w700,
         color: primaryColor,
       ),
-      bodyLarge: GoogleFonts.outfit(
+      bodyLarge: _outfit(
         fontSize: 16, color: secondaryColor,
       ),
-      bodyMedium: GoogleFonts.outfit(
+      bodyMedium: _outfit(
         fontSize: 14, color: secondaryColor,
       ),
-      labelSmall: GoogleFonts.outfit(
+      labelSmall: _outfit(
         fontSize: 11, letterSpacing: 1.5,
         color: mutedColor, fontWeight: FontWeight.w600,
       ),
@@ -164,7 +183,7 @@ class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(
+          textStyle: _outfit(
             fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 2,
           ),
         ),
@@ -177,7 +196,7 @@ class AppTheme {
           side: BorderSide(color: border, width: 1.5),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(
+          textStyle: _outfit(
             fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1.5,
           ),
         ),
