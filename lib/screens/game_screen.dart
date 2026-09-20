@@ -156,20 +156,23 @@ class _Header extends StatelessWidget {
                 tc: tc,
               ),
               Expanded(
-                child: Text(
-                  'CUBICLES',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: tc.accent,
-                        letterSpacing: 3,
-                        fontWeight: FontWeight.w900,
-                        shadows: [
-                          Shadow(
-                            color: tc.accent.withValues(alpha: 0.5),
-                            blurRadius: 14,
-                          ),
-                        ],
-                      ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'CUBICLES',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: tc.accent,
+                          letterSpacing: 3,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                              color: tc.accent.withValues(alpha: 0.5),
+                              blurRadius: 14,
+                            ),
+                          ],
+                        ),
+                  ),
                 ),
               ),
               // Settings
@@ -210,10 +213,49 @@ class _Header extends StatelessWidget {
           ),
         ),
 
-        // ── Score bar ─────────────────────────────────────────────────────
-        const _ScoreBar(),
+        // ── Controls & Score Bar: HOLD | ScoreStrip | NEXT ─────────────────
+        const _ControlScoreBar(),
         const SizedBox(height: 4),
       ],
+    );
+  }
+}
+
+/// Compact bar combining HOLD card, ScoreBar, and NEXT card in a single row
+/// to minimize vertical space and allow the board to match full device width.
+class _ControlScoreBar extends StatelessWidget {
+  const _ControlScoreBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final tc = ThemeColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _PreviewCard(
+            label: 'HOLD',
+            pieceType: context.select<GameProvider, TetrominoType?>(
+                (p) => p.holdPieceType),
+            previewSize: 34.0,
+            isDisabled: !context.select<GameProvider, bool>(
+                (p) => p.canHold),
+            onTap: () => context.read<GameProvider>().holdPiece(),
+            tc: tc,
+          ),
+          const SizedBox(width: 6),
+          const Expanded(child: _ScoreBar()),
+          const SizedBox(width: 6),
+          _PreviewCard(
+            label: 'NEXT',
+            pieceType: context.select<GameProvider, TetrominoType?>(
+                (p) => p.nextPieceType),
+            previewSize: 34.0,
+            tc: tc,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -376,64 +418,13 @@ class _IconBtn extends StatelessWidget {
 
 class _GameArea extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    final tc = ThemeColors.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide    = constraints.maxWidth > 520;
-        final hPad      = isWide ? 12.0 : 8.0;
-        final previewSz = isWide ? 100.0 : 64.0;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Top strip: Hold | Next (+ keyboard hints on wide screens) ──
-            Padding(
-              padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 6),
-              child: Builder(
-                builder: (context) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PreviewCard(
-                      label: 'HOLD',
-                      pieceType: context.select<GameProvider, TetrominoType?>(
-                          (p) => p.holdPieceType),
-                      previewSize: previewSz,
-                      isDisabled: !context.select<GameProvider, bool>(
-                          (p) => p.canHold),
-                      onTap: () => context.read<GameProvider>().holdPiece(),
-                      tc: tc,
-                    ),
-                    const SizedBox(width: 10),
-                    _PreviewCard(
-                      label: 'NEXT',
-                      pieceType: context.select<GameProvider, TetrominoType?>(
-                          (p) => p.nextPieceType),
-                      previewSize: previewSz,
-                      tc: tc,
-                    ),
-                    if (isWide) ...[
-                      const SizedBox(width: 10),
-                      Expanded(child: _KeyboardHints(tc: tc)),
-                    ] else
-                      const Spacer(),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Game board – full width, fills all remaining height ──────────
-            const Expanded(child: GameBoardWidget()),
-
-            const SizedBox(height: 6),
-          ],
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.only(bottom: 6),
+        child: GameBoardWidget(),
+      );
 }
 
-/// Compact piece-preview card shown in the top strip (Hold / Next).
+/// Compact piece-preview card shown flanking the score bar (Hold / Next).
 class _PreviewCard extends StatelessWidget {
   final String label;
   final TetrominoType? pieceType;
@@ -462,10 +453,10 @@ class _PreviewCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         opacity: isDisabled ? 0.40 : 1.0,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: tc.surface,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: (onTap != null && !isDisabled && hasPiece)
                   ? pieceColor.withValues(alpha: 0.5)
@@ -476,7 +467,7 @@ class _PreviewCard extends StatelessWidget {
               if (hasPiece && !isDisabled)
                 BoxShadow(
                   color: pieceColor.withValues(alpha: 0.10),
-                  blurRadius: 12,
+                  blurRadius: 10,
                 ),
             ],
           ),
@@ -487,16 +478,17 @@ class _PreviewCard extends StatelessWidget {
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: (onTap != null && !isDisabled) ? tc.accent : tc.textMuted,
-                      letterSpacing: 2,
+                      letterSpacing: 1.0,
                       fontWeight: FontWeight.w800,
+                      fontSize: 8.5,
                     ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               SizedBox(
                 width: previewSize,
                 height: previewSize,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   child: CustomPaint(
                     painter: PiecePainter(pieceType: pieceType),
                   ),
@@ -510,81 +502,4 @@ class _PreviewCard extends StatelessWidget {
   }
 }
 
-// ── Keyboard hints (wide layout only) ─────────────────────────────────────────
 
-class _KeyboardHints extends StatelessWidget {
-  static const _hints = [
-    ('← →', 'Move'),
-    ('↑ / X', 'Rotate CW'),
-    ('Z / Ctrl', 'Rotate CCW'),
-    ('↓', 'Soft drop'),
-    ('SPACE', 'Hard drop'),
-    ('C', 'Hold'),
-    ('M', 'Mute'),
-    ('S', 'Settings'),
-    ('P / Esc', 'Pause'),
-  ];
-
-  final ThemeColors tc;
-  const _KeyboardHints({required this.tc});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: tc.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: tc.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'KEYBOARD',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: tc.textMuted,
-                  letterSpacing: 1.5,
-                ),
-          ),
-          const SizedBox(height: 8),
-          ..._hints.map(
-            (h) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: tc.accent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                          color: tc.accent.withValues(alpha: 0.25)),
-                    ),
-                    child: Text(
-                      h.$1,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: tc.accent,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      h.$2,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: tc.textSecondary,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

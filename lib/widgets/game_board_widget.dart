@@ -45,16 +45,24 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Preserve the board's 12:20 aspect ratio inside the available space.
-        final cellSize = (constraints.maxWidth  / GameEngine.boardCols)
-            .clamp(0.0, constraints.maxHeight / GameEngine.boardRows);
+        // Strict 12:20 square-cell aspect ratio so pieces are never distorted.
+        const hMargin = 8.0;
+        const vMargin = 6.0;
+
+        final availW = (constraints.maxWidth - hMargin * 2).clamp(0.0, double.infinity);
+        final availH = (constraints.maxHeight - vMargin * 2).clamp(0.0, double.infinity);
+
+        final cellSize = (availW / GameEngine.boardCols)
+            .clamp(0.0, availH / GameEngine.boardRows);
         final boardW = cellSize * GameEngine.boardCols;
         final boardH = cellSize * GameEngine.boardRows;
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Center(
-          child: Container(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: hMargin, vertical: vMargin),
+            child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
               boxShadow: [
@@ -117,8 +125,9 @@ class _GameBoardWidgetState extends State<GameBoardWidget> {
               ),
             ),
           ),
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
